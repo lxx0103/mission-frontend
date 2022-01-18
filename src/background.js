@@ -82,3 +82,8 @@ if (isDevelopment) {
     })
   }
 }
+
+ipcMain.on('getUserList', (e, filter) => {
+  console.log(e)
+  console.log(filter)
+})
