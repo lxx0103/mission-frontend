@@ -15,8 +15,8 @@ protocol.registerSchemesAsPrivileged([
 async function createWindow() {
     // Create the browser window.
     const win = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 1440,
+        height: 900,
         webPreferences: {
         
         // Use pluginOptions.nodeIntegration, leave this alone
@@ -85,9 +85,7 @@ if (isDevelopment) {
 }
 
 ipcMain.on('getUserList', (e, filter) => {
-    console.log(filter)
-    db.all('SELECT * FROM `users`', function(err, row){
-        console.log(row)
+    db.all('SELECT * FROM `users` WHERE name like "%' + filter + '%"', function(err, row){
         e.returnValue = row
     })
 })

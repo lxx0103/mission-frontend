@@ -5,8 +5,10 @@ import store from './store'
 import vuetify from './plugins/vuetify'
 import 'roboto-fontface/css/roboto/roboto-fontface.css'
 import '@mdi/font/css/materialdesignicons.css'
+import _ from 'lodash'
 
 Vue.config.productionTip = false
+Vue.prototype._ = _
 
 new Vue({
   router,
