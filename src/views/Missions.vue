@@ -166,7 +166,7 @@ import _ from 'lodash';
           let params = {userID: this.userID, userName: this.userName, userStatus: this.userStatus}
           let res = window.ipcRenderer.sendSync('saveUser', params)
           if(res == '成功'){
-            this.closeDialog()
+            this.closeDialog() 
             this.getUsers()
           }
         }

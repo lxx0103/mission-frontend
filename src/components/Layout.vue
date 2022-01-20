@@ -43,6 +43,11 @@ export default {
                     title: '用户列表',
                     to: '/users'
                 },
+                {
+                    icon: 'mdi-format-list-bulleted',
+                    title: '任务列表',
+                    to: '/missions'
+                },
             ],
         };
     },

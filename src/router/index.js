@@ -3,6 +3,7 @@ import VueRouter from 'vue-router'
 import Layout from '@/components/Layout'
 import Home from '@/views/Home.vue'
 import Users from '@/views/Users.vue'
+import Missions from '@/views/Missions.vue'
 
 
 Vue.use(VueRouter)
@@ -30,7 +31,14 @@ const routes = [
                     title: 'Users'
                 }
             },
-            
+            {
+                path: '/missions',
+                name: 'Missions',
+                component: Missions,
+                meta: {
+                    title: 'Missions'
+                }
+            },            
         ]
     }
 ]

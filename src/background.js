@@ -85,7 +85,39 @@ if (isDevelopment) {
 }
 
 ipcMain.on('getUserList', (e, filter) => {
-    db.all('SELECT * FROM `users` WHERE name like "%' + filter + '%"', function(err, row){
-        e.returnValue = row
-    })
+    const stmt = db.prepare('SELECT * FROM `users` WHERE name like ?');
+    const rows = stmt.all('%' + filter + '%');
+    e.returnValue = rows
+})
+ipcMain.on('saveUser', (e, params) => {
+    console.log(params)
+    if (!Number.isInteger(params.userID)) {
+        e.returnValue = '用户ID错误'
+        return
+    }
+    if ( params.userName == '') {
+        e.returnValue = '用户姓名不能为空'
+        return
+    }
+    if ( params.userStatus != '启用' && params.userStatus != '禁用') {
+        e.returnValue = '用户状态错误'
+        return
+    }
+    let exist = 0
+
+    if (params.userID !=0 ) {
+        exist  = db.prepare('SELECT count(1) FROM `users` WHERE name = ? AND id != ?').pluck().get(params.userName, params.userID)
+    } else {
+        exist = db.prepare('SELECT count(1) FROM `users` WHERE name = ? ').pluck().get(params.userName)
+    }
+    if ( exist != 0 ) {
+        e.returnValue = '用户名已存在'
+        return
+    }
+    if (params.userID != 0) {
+        db.prepare('UPDATE `users` set name = ?, status = ? WHERE id = ?').run(params.userName, params.userStatus, params.userID)
+    } else {
+        db.prepare('INSERT INTO `users` (name, status) values (?,?)').run(params.userName, params.userStatus)
+    }
+    e.returnValue = '成功'
 })
