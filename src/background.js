@@ -132,10 +132,60 @@ ipcMain.on('getMissionsList', (e, filter) => {
 })
 
 ipcMain.on('uploadExcel', (e, params) => {
-    console.log(params)
     fs.copyFileSync(params.path, './'+params.name)
     let workbook = XLSX.readFile('./'+params.name)
     let sheetNames = workbook.SheetNames;
-    console.log(sheetNames)
-    e.returnValue = '成功'
+    let worksheet = workbook.Sheets[sheetNames[0]]
+    let codeCell = getCodeCell(worksheet)
+    let nameCell = getNameCell(worksheet)
+    console.log(codeCell)
+    console.log(nameCell)
+    e.returnValue = 'codeColumn'
 })
+
+function getCodeCell(sheet) {
+    let range = XLSX.utils.decode_range(sheet['!ref']);
+    let codeColumn = 0;
+    let codeRow = 0;
+    for(var rowNum = range.s.r; rowNum <= range.e.r; rowNum++){
+        for(var colNum=range.s.c; colNum<=range.e.c; colNum++){
+            var nextCell = sheet[
+                XLSX.utils.encode_cell({r: rowNum, c: colNum})
+            ];
+            if( typeof nextCell === 'undefined' ){
+                break
+            } else {
+                console.log(nextCell)
+                if ((nextCell.w).includes('社会信用代码') || (nextCell.w).includes('纳税人识别号')){
+                    codeColumn = colNum
+                    codeRow = rowNum
+                }
+            }
+        }
+    }
+    return {r:codeRow, c:codeColumn}
+}
+
+
+function getNameCell(sheet) {
+    let range = XLSX.utils.decode_range(sheet['!ref']);
+    let nameColumn = 0;
+    let nameRow = 0;
+    for(var rowNum = range.s.r; rowNum <= range.e.r; rowNum++){
+        for(var colNum=range.s.c; colNum<=range.e.c; colNum++){
+            var nextCell = sheet[
+                XLSX.utils.encode_cell({r: rowNum, c: colNum})
+            ];
+            if( typeof nextCell === 'undefined' ){
+                break
+            } else {
+                console.log(nextCell)
+                if ((nextCell.w).includes('纳税人名称')){
+                    nameColumn = colNum
+                    nameRow = rowNum
+                }
+            }
+        }
+    }
+    return {r:nameRow, c:nameColumn}
+}

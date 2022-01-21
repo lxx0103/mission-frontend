@@ -180,6 +180,7 @@ import _ from 'lodash';
           console.log(this.uploadFile)
           let params = {name: this.uploadFile.name, path: this.uploadFile.path}
           let res = window.ipcRenderer.sendSync('uploadExcel', params)
+          console.log(res)
           if(res == '成功'){
             this.closeDialog() 
             this.getMissions()
