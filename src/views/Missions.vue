@@ -3,18 +3,65 @@
         <v-breadcrumbs :items="bc_items" large></v-breadcrumbs>
         <v-row>
             <v-col
-                class="d-flex align-bottom pt-3 pl-5 pr-5"
-                cols="12"
-                sm="12"
+              class="d-flex align-bottom pt-3 pl-5 pr-5"
+              cols="12"
+              sm="3"
+            >                    
+              <v-autocomplete
+                v-model="filter.excelName"
+                :items="excelItems"
+                :loading="excelLoading"
+                :search-input.sync="excelSearch"
+                hide-no-data
+                hide-selected
+                item-text="name"
+                item-value="id"
+                label="EXCEL名称"
+                placeholder="搜索EXCEL"
+                return-object
+              ></v-autocomplete>
+            </v-col>
+            <v-col
+              class="d-flex align-bottom pt-3"
+              cols="12"
+              sm="3"
             >                
               <v-text-field 
-                placeholder="搜索用户姓名" 
+                placeholder="搜索目标" 
                 v-model="itemSearch"
-                prepend-inner-icon="mdi-magnify"
-                append-icon="mdi-close"
-                @click:append="itemSearch = ''"
                 >
               ></v-text-field>
+            </v-col>
+            <v-col
+              class="d-flex align-bottom pt-3"
+              cols="12"
+              sm="3"
+            >                
+              <v-text-field 
+                placeholder="搜索负责人" 
+                v-model="itemSearch"
+                >
+              ></v-text-field>
+            </v-col>
+            <v-col
+                class="d-flex align-bottom pt-3"
+                cols="12"
+                sm="3"        
+            >
+                <v-btn
+                    class="mr-3"
+                    color="secondary"
+                    elevation="2"
+                    large
+                    @click="getMissions()"
+                >搜索</v-btn>
+                <v-btn
+                    ml-3
+                    color="warning"
+                    elevation="2"
+                    large
+                    @click="uploadExcel()"
+                >上传</v-btn>
             </v-col>
         </v-row>
     <v-data-table
@@ -25,34 +72,10 @@
         fixed-header 
         class="elevation-1"
     >
-      <template  v-slot:header.action>
-        <v-btn
-          tile
-          color="normal"
-          @click="editUser('')"
-        >
-          <v-icon left>
-            mdi-plus
-          </v-icon>
-          新增用户
-        </v-btn>  
-      </template>
-      <template v-slot:item.action="{ item }">
-        <v-btn
-          tile
-          color="success"
-          @click="editUser(item)"
-        >
-          <v-icon left>
-            mdi-pencil
-          </v-icon>
-          编辑用户
-        </v-btn>  
-      </template>
     </v-data-table>
     <div class="text-center">
         <v-dialog
-        v-model="dialogUser"
+        v-model="dialogUpload"
         width="500"
         >
         <v-card>
@@ -63,20 +86,13 @@
                 <v-container>
                     <v-row>
                         <v-col cols="12" sm="6" md="12">
-                            <v-text-field
-                            v-model="userName"
-                            label="姓名"
-                            ></v-text-field>
-                        </v-col>
-                    </v-row>
-                    <v-row>
-                        <v-col cols="12" sm="6" md="12">
-                          
-                          <v-select
-                            v-model="userStatus"
-                            :items="statusOptions"
-                            label="状态"
-                          ></v-select>
+                          <v-file-input
+                            v-model="uploadFile"
+                            accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            label="请选择EXCEL文件(*.xlsx)"
+                            show-size
+                            truncate-length="20"
+                          ></v-file-input>
                         </v-col>
                     </v-row>
                 </v-container>
@@ -85,7 +101,7 @@
             <v-card-actions>
                 <v-spacer></v-spacer>
                 <v-btn color="blue darken-1" text @click="closeDialog"> 取消 </v-btn>
-                <v-btn color="blue darken-1" text @click="saveUser"> 保存 </v-btn>
+                <v-btn color="blue darken-1" text @click="doUpload"> 保存 </v-btn>
             </v-card-actions>
         </v-card>
         </v-dialog>
@@ -103,12 +119,20 @@ import _ from 'lodash';
     data: () => ({
         headers: [
             { text: 'ID', value: 'id'},
-            { text: '姓名', value: 'name' },
-            { text: '状态', value: 'status' },
-            { text: 'Action', value: 'action'}
+            { text: 'EXCEL名称', value:'excel'},
+            { text: '社会信用代码/纳税人识别号', value: 'code' },
+            { text: '名称', value: 'name' },
+            { text: '负责人', value: 'assigned_to' },
         ],
+        filter: {
+          excelName : '',
+          assigned: '',
+        },
         userdata: [],
         loading: true,
+        excelLoading: true,
+        excelItems: [],
+        excelSearch: '',
         bc_items: [
             {
                 text: '主页',
@@ -116,58 +140,49 @@ import _ from 'lodash';
                 href: '/home',
             },
             {
-                text: '用户列表',
+                text: '任务列表',
                 disabled: false,
                 href: ''
             }
         ],
         itemSearch: '',
-        dialogUser: false,
-        dialogName: '新增用户',
+        dialogUpload: false,
+        dialogName: '上传EXCEL',
         userID: 0,
         userName: '',
         userStatus: '启用',
         userError: '',
         statusOptions: ['启用', '禁用'],
+        uploadFile: ''
     }),
     created () {
-        this.getUsers()
+        this.getMissions()
     },
     watch: {
         itemSearch () {
-            this.getUsers()
+            this.getMissions()
         }
     },
     methods: {
-        getUsers: _.debounce(function() {
+        getMissions: _.debounce(function() {
             this.loading = true
             this.errorMessages = ''
-            this.userdata  = window.ipcRenderer.sendSync('getUserList', this.itemSearch)
+            this.userdata  = window.ipcRenderer.sendSync('getMissionsList', this.itemSearch)
             this.loading = false
         }, 500),
-        editUser(currentUser) {
-          if(currentUser == ''){
-            this.dialogName = '新增用户'
-            this.userName = ''
-            this.userStatus = '启用'
-            this.userID = 0
-          } else {
-            this.dialogName = '编辑用户'
-            this.userName = currentUser.name
-            this.userStatus = currentUser.status
-            this.userID = currentUser.id
-          }
-          this.dialogUser = true
+        uploadExcel() {
+          this.dialogUpload = true
         },
         closeDialog () {
-            this.dialogUser = false
+            this.dialogUpload = false
         },
-        saveUser () {
-          let params = {userID: this.userID, userName: this.userName, userStatus: this.userStatus}
-          let res = window.ipcRenderer.sendSync('saveUser', params)
+        doUpload () {
+          console.log(this.uploadFile)
+          let params = {name: this.uploadFile.name, path: this.uploadFile.path}
+          let res = window.ipcRenderer.sendSync('uploadExcel', params)
           if(res == '成功'){
             this.closeDialog() 
-            this.getUsers()
+            this.getMissions()
           }
         }
     },

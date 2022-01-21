@@ -5,7 +5,9 @@ import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import {db} from './backend/db.js'
 // import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
 const path = require('path');
+const fs = require('fs');
 const isDevelopment = process.env.NODE_ENV !== 'production'
+const XLSX = require('xlsx'); 
 
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([
@@ -115,9 +117,25 @@ ipcMain.on('saveUser', (e, params) => {
         return
     }
     if (params.userID != 0) {
-        db.prepare('UPDATE `users` set name = ?, status = ? WHERE id = ?').run(params.userName, params.userStatus, params.userID)
+        db.prepare('UPDATE `users` set name = ?, type = ?, status = ? WHERE id = ?').run(params.userName, params.userType, params.userStatus, params.userID)
     } else {
-        db.prepare('INSERT INTO `users` (name, status) values (?,?)').run(params.userName, params.userStatus)
+        db.prepare('INSERT INTO `users` (name, type, status) values (?,?,?)').run(params.userName, params.userType, params.userStatus)
     }
+    e.returnValue = '成功'
+})
+
+
+ipcMain.on('getMissionsList', (e, filter) => {
+    const stmt = db.prepare('SELECT * FROM `users` WHERE name like ?');
+    const rows = stmt.all('%' + filter + '%');
+    e.returnValue = rows
+})
+
+ipcMain.on('uploadExcel', (e, params) => {
+    console.log(params)
+    fs.copyFileSync(params.path, './'+params.name)
+    let workbook = XLSX.readFile('./'+params.name)
+    let sheetNames = workbook.SheetNames;
+    console.log(sheetNames)
     e.returnValue = '成功'
 })

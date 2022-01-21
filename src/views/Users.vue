@@ -73,6 +73,16 @@
                         <v-col cols="12" sm="6" md="12">
                           
                           <v-select
+                            v-model="userType"
+                            :items="typeOptions"
+                            label="用户类型"
+                          ></v-select>
+                        </v-col>
+                    </v-row>
+                    <v-row>
+                        <v-col cols="12" sm="6" md="12">
+                          
+                          <v-select
                             v-model="userStatus"
                             :items="statusOptions"
                             label="状态"
@@ -104,6 +114,7 @@ import _ from 'lodash';
         headers: [
             { text: 'ID', value: 'id'},
             { text: '姓名', value: 'name' },
+            { text: '用户类型', value: 'type'},
             { text: '状态', value: 'status' },
             { text: 'Action', value: 'action'}
         ],
@@ -126,9 +137,11 @@ import _ from 'lodash';
         dialogName: '新增用户',
         userID: 0,
         userName: '',
-        userStatus: '启用',
+        userStatus: '启用',        
+        userType: '普通用户',
         userError: '',
         statusOptions: ['启用', '禁用'],
+        typeOptions: ['管事组', '普通用户'],
     }),
     created () {
         this.getUsers()
@@ -150,11 +163,13 @@ import _ from 'lodash';
             this.dialogName = '新增用户'
             this.userName = ''
             this.userStatus = '启用'
+            this.userType = '普通用户'
             this.userID = 0
           } else {
             this.dialogName = '编辑用户'
             this.userName = currentUser.name
             this.userStatus = currentUser.status
+            this.userType = currentUser.type
             this.userID = currentUser.id
           }
           this.dialogUser = true
@@ -163,7 +178,7 @@ import _ from 'lodash';
             this.dialogUser = false
         },
         saveUser () {
-          let params = {userID: this.userID, userName: this.userName, userStatus: this.userStatus}
+          let params = {userID: this.userID, userName: this.userName, userStatus: this.userStatus, userType: this.userType}
           let res = window.ipcRenderer.sendSync('saveUser', params)
           if(res == '成功'){
             this.closeDialog()
