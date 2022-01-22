@@ -4,6 +4,7 @@ import Layout from '@/components/Layout'
 import Home from '@/views/Home.vue'
 import Users from '@/views/Users.vue'
 import Missions from '@/views/Missions.vue'
+import Targets from '@/views/Targets.vue'
 
 
 Vue.use(VueRouter)
@@ -38,7 +39,15 @@ const routes = [
                 meta: {
                     title: 'Missions'
                 }
-            },            
+            },        
+            {
+                path: '/targets',
+                name: 'Targets',
+                component: Targets,
+                meta: {
+                    title: 'Targets'
+                }
+            },      
         ]
     }
 ]

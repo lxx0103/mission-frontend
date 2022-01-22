@@ -276,3 +276,43 @@ function getNextMission() {
     let nextMission =  db.prepare('SELECT * FROM `missions` WHERE `assigned` = ? ORDER BY id ASC LIMIT 1').pluck().get('')
     return nextMission
 }
+
+ipcMain.on('getTargetList', (e, filter) => {
+    const stmt = db.prepare('SELECT * FROM `targets` WHERE code like ?');
+    const rows = stmt.all('%' + filter + '%');
+    e.returnValue = rows
+})
+ipcMain.on('getSPUsers', (e, filter) => {
+    const stmt = db.prepare('SELECT * FROM `users` WHERE type = ? AND name like ?');
+    const rows = stmt.all('管事组', '%' + filter + '%');
+    e.returnValue = rows
+})
+
+ipcMain.on('saveTarget', (e, params) => {
+    console.log(params)
+    if (!Number.isInteger(params.targetID)) {
+        e.returnValue = 'ID错误'
+        return
+    }
+    if ( params.code == '') {
+        e.returnValue = '纳税人编号不能为空'
+        return
+    }
+    let exist = 0
+
+    if (params.targetID !=0 ) {
+        exist  = db.prepare('SELECT count(1) FROM `targets` WHERE code = ? AND id != ?').pluck().get(params.code, params.targetID)
+    } else {
+        exist = db.prepare('SELECT count(1) FROM `targets` WHERE code = ? ').pluck().get(params.code)
+    }
+    if ( exist != 0 ) {
+        e.returnValue = '纳税人编号已存在'
+        return
+    }
+    if (params.targetID != 0) {
+        db.prepare('UPDATE `targets` set code = ?, `to` = ? WHERE id = ?').run(params.code, params.to, params.targetID)
+    } else {
+        db.prepare('INSERT INTO `targets` (code, `to`) values (?, ?)').run(params.code, params.to)
+    }
+    e.returnValue = '成功'
+})

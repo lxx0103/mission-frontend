@@ -48,6 +48,11 @@ export default {
                     title: '任务列表',
                     to: '/missions'
                 },
+                {
+                    icon: 'mdi-flag-variant-outline',
+                    title: '特殊纳税人管理',
+                    to: '/targets'
+                },
             ],
         };
     },
