@@ -8,7 +8,7 @@
               sm="3"
             >                    
               <v-autocomplete
-                v-model="filter.excelName"
+                v-model="excelSelected"
                 :items="excelItems"
                 :loading="excelLoading"
                 :search-input.sync="excelSearch"
@@ -28,7 +28,7 @@
             >                
               <v-text-field 
                 placeholder="搜索目标" 
-                v-model="itemSearch"
+                v-model="filter.name"
                 >
               ></v-text-field>
             </v-col>
@@ -39,7 +39,7 @@
             >                
               <v-text-field 
                 placeholder="搜索负责人" 
-                v-model="itemSearch"
+                v-model="filter.assigned"
                 >
               ></v-text-field>
             </v-col>
@@ -90,7 +90,6 @@
                             v-model="uploadFile"
                             accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             label="请选择EXCEL文件(*.xlsx)"
-                            show-size
                             truncate-length="20"
                           ></v-file-input>
                         </v-col>
@@ -102,6 +101,34 @@
                 <v-spacer></v-spacer>
                 <v-btn color="blue darken-1" text @click="closeDialog"> 取消 </v-btn>
                 <v-btn color="blue darken-1" text @click="doUpload"> 保存 </v-btn>
+            </v-card-actions>
+        </v-card>
+        </v-dialog>
+    </div>
+    <div class="text-center">
+        <v-dialog
+        v-model="errorDialog"
+        width="500"
+        >
+        <v-card>
+            <v-card-title>
+                <span class="headline">发生错误</span>
+            </v-card-title>
+            <v-card-text>
+                <v-container>
+                    <v-row>
+                        <v-col cols="12" sm="6" md="12">
+                          <v-alert type="error">
+                            {{errorMessages}}
+                          </v-alert>
+                        </v-col>
+                    </v-row>
+                </v-container>
+            </v-card-text>
+
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" text @click="closeErrorDialog"> 确定 </v-btn>
             </v-card-actions>
         </v-card>
         </v-dialog>
@@ -119,13 +146,14 @@ import _ from 'lodash';
     data: () => ({
         headers: [
             { text: 'ID', value: 'id'},
-            { text: 'EXCEL名称', value:'excel'},
+            { text: 'EXCEL名称', value:'excel_name'},
             { text: '社会信用代码/纳税人识别号', value: 'code' },
             { text: '名称', value: 'name' },
-            { text: '负责人', value: 'assigned_to' },
+            { text: '负责人', value: 'assigned' },
         ],
         filter: {
-          excelName : '',
+          excel_id : 0,
+          name : '',
           assigned: '',
         },
         userdata: [],
@@ -133,6 +161,7 @@ import _ from 'lodash';
         excelLoading: true,
         excelItems: [],
         excelSearch: '',
+        excelSelected: 0,
         bc_items: [
             {
                 text: '主页',
@@ -153,37 +182,53 @@ import _ from 'lodash';
         userStatus: '启用',
         userError: '',
         statusOptions: ['启用', '禁用'],
-        uploadFile: ''
+        uploadFile: null,
+        errorDialog: false,
+        errorMessages:'',
     }),
     created () {
         this.getMissions()
     },
     watch: {
-        itemSearch () {
-            this.getMissions()
+        excelSearch () {
+            this.getExcels()
         }
     },
     methods: {
+        getExcels: _.debounce(function() {
+            this.excelLoading = true
+            this.excelItems  = window.ipcRenderer.sendSync('getExcelsList', this.excelSearch == null ? '' : this.excelSearch )
+            this.excelLoading = false
+        }, 500),
         getMissions: _.debounce(function() {
+            this.filter.excel_id = this.excelSelected == null ? 0 : ( typeof this.excelSelected.id == 'undefined' ? 0 : this.excelSelected.id )
             this.loading = true
-            this.errorMessages = ''
-            this.userdata  = window.ipcRenderer.sendSync('getMissionsList', this.itemSearch)
+            this.userdata  = window.ipcRenderer.sendSync('getMissionsList', this.filter)
             this.loading = false
         }, 500),
         uploadExcel() {
+          this.uploadFile = null
           this.dialogUpload = true
         },
         closeDialog () {
             this.dialogUpload = false
         },
+        closeErrorDialog () {
+            this.errorDialog = false
+            this.closeDialog()
+        },
         doUpload () {
-          console.log(this.uploadFile)
+          if (this.uploadFile == null) {
+            return
+          }
           let params = {name: this.uploadFile.name, path: this.uploadFile.path}
           let res = window.ipcRenderer.sendSync('uploadExcel', params)
-          console.log(res)
           if(res == '成功'){
             this.closeDialog() 
             this.getMissions()
+          }else{
+            this.errorMessages = res
+            this.errorDialog = true
           }
         }
     },

@@ -126,21 +126,66 @@ ipcMain.on('saveUser', (e, params) => {
 
 
 ipcMain.on('getMissionsList', (e, filter) => {
-    const stmt = db.prepare('SELECT * FROM `users` WHERE name like ?');
+    let sql = 'SELECT m.* , e.name as excel_name  FROM `missions` m LEFT JOIN `excels` e ON m.excel_id = e.id WHERE 1=1 '
+    if (filter.excel_id != 0 ) {
+        sql += ' AND m.excel_id = @excel_id '
+    }
+    if (filter.name != '') {
+        sql += ' AND ( m.name like @name OR m.code like @code )'
+    }
+    if (filter.assigned != '') {
+        sql += ' AND m.assigned like @assigned '
+    }
+    const stmt = db.prepare(sql);
+    let where = {excel_id: filter, name: '%'+filter.name+'%', code: '%'+filter.name+'%', assigned: '%'+filter.assigned+'%'}
+    const rows = stmt.all(where);
+    e.returnValue = rows
+})
+ipcMain.on('getExcelsList', (e, filter) => {
+    const stmt = db.prepare('SELECT * FROM `excels` WHERE name like ?');
     const rows = stmt.all('%' + filter + '%');
     e.returnValue = rows
 })
 
 ipcMain.on('uploadExcel', (e, params) => {
+    let exist  = db.prepare('SELECT count(1) FROM `excels` WHERE name = ?').pluck().get(params.name)
+    if ( exist != 0 ) {
+        e.returnValue = '同名EXCEL已存在，请重新命名后上传'
+        return
+    }
     fs.copyFileSync(params.path, './'+params.name)
     let workbook = XLSX.readFile('./'+params.name)
     let sheetNames = workbook.SheetNames;
     let worksheet = workbook.Sheets[sheetNames[0]]
     let codeCell = getCodeCell(worksheet)
     let nameCell = getNameCell(worksheet)
-    console.log(codeCell)
-    console.log(nameCell)
-    e.returnValue = 'codeColumn'
+    if (codeCell == 0) {
+        e.returnValue = '没有找到“纳税人识别号/社会信用代码”'
+        return
+    }
+    if (nameCell == 0) {
+        e.returnValue = '没有找到“纳税人名称”'
+        return
+    }
+    if (nameCell.r != codeCell.r) {
+        e.returnValue = '表头错误'
+        return
+    }
+    let today = (new Date()).toISOString().split('T')[0];
+    let excel_id = db.prepare("INSERT INTO excels (name , date , path) values (?, ?, ?)").run(params.name, today, './'+params.name)
+    console.log(excel_id)
+    const insertMission = db.prepare("INSERT INTO missions (excel_id, code , name) values (?, ?, ?)");
+    let range = XLSX.utils.decode_range(worksheet['!ref']);
+    for (var currentRow = nameCell.r + 1 ; currentRow <= range.e.r; currentRow ++ ) {
+        let currentCodeCell = worksheet[
+            XLSX.utils.encode_cell({r: currentRow, c: codeCell.c})
+        ]
+        let currentNameCell = worksheet[
+            XLSX.utils.encode_cell({r: currentRow, c: nameCell.c})
+        ]
+        insertMission.run(excel_id.lastInsertRowid, currentCodeCell.w, currentNameCell.v)
+    }
+    e.returnValue = '成功'
 })
 
 function getCodeCell(sheet) {
@@ -148,44 +193,43 @@ function getCodeCell(sheet) {
     let codeColumn = 0;
     let codeRow = 0;
     for(var rowNum = range.s.r; rowNum <= range.e.r; rowNum++){
-        for(var colNum=range.s.c; colNum<=range.e.c; colNum++){
+        for(var colNum = range.s.c; colNum <= range.e.c; colNum++){
             var nextCell = sheet[
                 XLSX.utils.encode_cell({r: rowNum, c: colNum})
             ];
             if( typeof nextCell === 'undefined' ){
                 break
             } else {
-                console.log(nextCell)
                 if ((nextCell.w).includes('社会信用代码') || (nextCell.w).includes('纳税人识别号')){
                     codeColumn = colNum
                     codeRow = rowNum
+                    return {r:codeRow, c:codeColumn}
                 }
             }
         }
     }
-    return {r:codeRow, c:codeColumn}
+    return 0
 }
-
 
 function getNameCell(sheet) {
     let range = XLSX.utils.decode_range(sheet['!ref']);
     let nameColumn = 0;
     let nameRow = 0;
     for(var rowNum = range.s.r; rowNum <= range.e.r; rowNum++){
-        for(var colNum=range.s.c; colNum<=range.e.c; colNum++){
+        for(var colNum = range.s.c; colNum <= range.e.c; colNum++){
             var nextCell = sheet[
                 XLSX.utils.encode_cell({r: rowNum, c: colNum})
             ];
             if( typeof nextCell === 'undefined' ){
                 break
             } else {
-                console.log(nextCell)
                 if ((nextCell.w).includes('纳税人名称')){
                     nameColumn = colNum
                     nameRow = rowNum
+                    return {r:nameRow, c:nameColumn}
                 }
             }
         }
     }
-    return {r:nameRow, c:nameColumn}
+    return 0
 }

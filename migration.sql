@@ -17,5 +17,5 @@ CREATE TABLE missions (
 	excel_id INTEGER NOT NULL,
 	code TEXT NOT NULL,
 	name TEXT NOT NULL,
-	assigned TEXT NOT NULL
+	assigned TEXT NOT NULL DEFAULT ''
 )
