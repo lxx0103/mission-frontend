@@ -1,5 +1,6 @@
 'use strict'
 
+import { count } from 'console';
 import { app, protocol, BrowserWindow, ipcMain } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import {db} from './backend/db.js'
@@ -137,7 +138,7 @@ ipcMain.on('getMissionsList', (e, filter) => {
         sql += ' AND m.assigned like @assigned '
     }
     const stmt = db.prepare(sql);
-    let where = {excel_id: filter, name: '%'+filter.name+'%', code: '%'+filter.name+'%', assigned: '%'+filter.assigned+'%'}
+    let where = {excel_id: filter.excel_id, name: '%'+filter.name+'%', code: '%'+filter.name+'%', assigned: '%'+filter.assigned+'%'}
     const rows = stmt.all(where);
     e.returnValue = rows
 })
@@ -173,8 +174,7 @@ ipcMain.on('uploadExcel', (e, params) => {
     }
     let today = (new Date()).toISOString().split('T')[0];
     let excel_id = db.prepare("INSERT INTO excels (name , date , path) values (?, ?, ?)").run(params.name, today, './'+params.name)
-    console.log(excel_id)
-    const insertMission = db.prepare("INSERT INTO missions (excel_id, code , name) values (?, ?, ?)");
+    const insertMission = db.prepare("INSERT INTO missions (excel_id, excel_row, code, name) values (?, ?, ?, ?)");
     let range = XLSX.utils.decode_range(worksheet['!ref']);
     for (var currentRow = nameCell.r + 1 ; currentRow <= range.e.r; currentRow ++ ) {
         let currentCodeCell = worksheet[
@@ -183,9 +183,19 @@ ipcMain.on('uploadExcel', (e, params) => {
         let currentNameCell = worksheet[
             XLSX.utils.encode_cell({r: currentRow, c: nameCell.c})
         ]
-        insertMission.run(excel_id.lastInsertRowid, currentCodeCell.w, currentNameCell.v)
+        insertMission.run(excel_id.lastInsertRowid, currentRow+1, currentCodeCell.w, currentNameCell.v)
     }
-    e.returnValue = '成功'
+    assignMission()
+    let newPath = '已分配-' + params.name
+    const stmt = db.prepare('SELECT * FROM `missions` WHERE excel_id = ?');
+    const rows = stmt.all(excel_id.lastInsertRowid);
+    XLSX.utils.sheet_add_aoa(worksheet, [['负责人']], {origin:XLSX.utils.encode_cell({r: codeCell.r, c: range.e.c + 1})})
+    for (var i = 0; i < rows.length; i++){
+        console.log(rows[i])
+        XLSX.utils.sheet_add_aoa(worksheet, [[rows[i].assigned]], {origin:XLSX.utils.encode_cell({r: rows[i].excel_row-1, c: range.e.c + 1})})
+    }
+    XLSX.writeFile(workbook, newPath)
+    e.returnValue = ['成功', newPath]
 })
 
 function getCodeCell(sheet) {
@@ -232,4 +242,37 @@ function getNameCell(sheet) {
         }
     }
     return 0
+}
+
+function assignMission() {
+    let hasMore = true
+    while (hasMore) {
+        let nextUser = getNextUser('普通用户')
+        let nextMission = getNextMission()
+        if (nextMission == undefined ){
+            hasMore = false
+        } else {
+            db.prepare('UPDATE missions SET assigned = ? WHERE id = ?').run(nextUser, nextMission)
+        }
+    }
+
+}
+
+function getNextUser(userType){
+    let lastUserID =  db.prepare('SELECT u.ID FROM `missions` m LEFT JOIN `users` u on m.assigned = u.name WHERE m.assigned != ? ORDER BY m.id DESC LIMIT 1').pluck().get('')
+    let nextUserName = ''
+    if (lastUserID==undefined) {//没有分配过任务
+        nextUserName = db.prepare('SELECT name FROM `users` WHERE type = ? and status = ? ORDER BY id ASC LIMIT 1').pluck().get(userType, '启用')
+    } else {
+        nextUserName = db.prepare('SELECT name FROM `users` WHERE type = ? and status = ? AND id > ? ORDER BY id ASC LIMIT 1').pluck().get(userType, '启用', lastUserID)
+        if(nextUserName == undefined ) {
+            nextUserName = db.prepare('SELECT name FROM `users` WHERE type = ? and status = ? ORDER BY id ASC LIMIT 1').pluck().get(userType, '启用')
+        }
+    }
+    return nextUserName
+}
+
+function getNextMission() {
+    let nextMission =  db.prepare('SELECT * FROM `missions` WHERE `assigned` = ? ORDER BY id ASC LIMIT 1').pluck().get('')
+    return nextMission
 }

@@ -133,6 +133,36 @@
         </v-card>
         </v-dialog>
     </div>
+    <div class="text-center">
+        <v-dialog
+        v-model="downloadDialog"
+        width="500"
+        >
+        <v-card>
+            <v-card-title>
+                <span class="headline">下载分配结果</span>
+            </v-card-title>
+            <v-card-text>
+                <v-container>
+                    <v-row>
+                      <v-btn
+                        class="ma-2"
+                        outlined
+                        :href="newExcel"
+                        download>
+                        下载文件
+                      </v-btn>
+                    </v-row>
+                </v-container>
+            </v-card-text>
+
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" text @click="closeDownloadDialog"> 确定 </v-btn>
+            </v-card-actions>
+        </v-card>
+        </v-dialog>
+    </div>
   </div>
 </template>
 <style lang="scss">
@@ -145,8 +175,9 @@ import _ from 'lodash';
   export default {
     data: () => ({
         headers: [
-            { text: 'ID', value: 'id'},
+            // { text: 'ID', value: 'id'},
             { text: 'EXCEL名称', value:'excel_name'},
+            { text: 'EXCEL行号', value:'excel_row'},
             { text: '社会信用代码/纳税人识别号', value: 'code' },
             { text: '名称', value: 'name' },
             { text: '负责人', value: 'assigned' },
@@ -185,6 +216,8 @@ import _ from 'lodash';
         uploadFile: null,
         errorDialog: false,
         errorMessages:'',
+        newExcel: '',
+        downloadDialog: false,
     }),
     created () {
         this.getMissions()
@@ -217,15 +250,20 @@ import _ from 'lodash';
             this.errorDialog = false
             this.closeDialog()
         },
+        closeDownloadDialog () {
+            this.downloadDialog = false
+        },
         doUpload () {
           if (this.uploadFile == null) {
             return
           }
           let params = {name: this.uploadFile.name, path: this.uploadFile.path}
           let res = window.ipcRenderer.sendSync('uploadExcel', params)
-          if(res == '成功'){
+          if(res[0] == '成功'){
             this.closeDialog() 
             this.getMissions()
+            this.newExcel = res[1]
+            this.downloadDialog = true
           }else{
             this.errorMessages = res
             this.errorDialog = true
