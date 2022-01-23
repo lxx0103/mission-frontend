@@ -154,8 +154,8 @@ ipcMain.on('uploadExcel', (e, params) => {
         e.returnValue = '同名EXCEL已存在，请重新命名后上传'
         return
     }
-    fs.copyFileSync(params.path, './'+params.name)
-    let workbook = XLSX.readFile('./'+params.name)
+    fs.copyFileSync(params.path, './excels/'+params.name)
+    let workbook = XLSX.readFile('./excels/'+params.name)
     let sheetNames = workbook.SheetNames;
     let worksheet = workbook.Sheets[sheetNames[0]]
     let codeCell = getCodeCell(worksheet)
@@ -173,7 +173,7 @@ ipcMain.on('uploadExcel', (e, params) => {
         return
     }
     let today = (new Date()).toISOString().split('T')[0];
-    let excel_id = db.prepare("INSERT INTO excels (name , date , path) values (?, ?, ?)").run(params.name, today, './'+params.name)
+    let excel_id = db.prepare("INSERT INTO excels (name , date , path) values (?, ?, ?)").run(params.name, today, './excels/'+params.name)
     const insertMission = db.prepare("INSERT INTO missions (excel_id, excel_row, code, name) values (?, ?, ?, ?)");
     let range = XLSX.utils.decode_range(worksheet['!ref']);
     for (var currentRow = nameCell.r + 1 ; currentRow <= range.e.r; currentRow ++ ) {
@@ -186,7 +186,7 @@ ipcMain.on('uploadExcel', (e, params) => {
         insertMission.run(excel_id.lastInsertRowid, currentRow+1, currentCodeCell.w, currentNameCell.v)
     }
     assignMission()
-    let newPath = '已分配-' + params.name
+    let newPath = './excels/已分配-' + params.name
     const stmt = db.prepare('SELECT * FROM `missions` WHERE excel_id = ?');
     const rows = stmt.all(excel_id.lastInsertRowid);
     XLSX.utils.sheet_add_aoa(worksheet, [['负责人']], {origin:XLSX.utils.encode_cell({r: codeCell.r, c: range.e.c + 1})})
@@ -195,7 +195,7 @@ ipcMain.on('uploadExcel', (e, params) => {
         XLSX.utils.sheet_add_aoa(worksheet, [[rows[i].assigned]], {origin:XLSX.utils.encode_cell({r: rows[i].excel_row-1, c: range.e.c + 1})})
     }
     XLSX.writeFile(workbook, newPath)
-    e.returnValue = ['成功', newPath]
+    e.returnValue = ['成功', '已分配-'+params.name]
 })
 
 function getCodeCell(sheet) {
@@ -247,19 +247,27 @@ function getNameCell(sheet) {
 function assignMission() {
     let hasMore = true
     while (hasMore) {
-        let nextUser = getNextUser('普通用户')
         let nextMission = getNextMission()
         if (nextMission == undefined ){
             hasMore = false
         } else {
-            db.prepare('UPDATE missions SET assigned = ? WHERE id = ?').run(nextUser, nextMission)
+            let nextUser = getSPUser(nextMission.code)
+            if (nextUser == undefined){
+                nextUser = getNextUser('普通用户')
+            }
+            let sameCode = getSameCode(nextMission.excel_id, nextMission.code)
+            if (sameCode == undefined){
+                db.prepare('UPDATE missions SET assigned = ? WHERE id = ?').run(nextUser, nextMission.id)
+            } else {
+                db.prepare('UPDATE missions SET assigned = ?, sameas = ? WHERE id = ?').run(sameCode, 'YES', nextMission.id)
+            }
         }
     }
 
 }
 
 function getNextUser(userType){
-    let lastUserID =  db.prepare('SELECT u.ID FROM `missions` m LEFT JOIN `users` u on m.assigned = u.name WHERE m.assigned != ? ORDER BY m.id DESC LIMIT 1').pluck().get('')
+    let lastUserID =  db.prepare('SELECT u.ID FROM `missions` m LEFT JOIN `users` u on m.assigned = u.name WHERE m.assigned != ? AND m.sameas = ? AND u.type = ? ORDER BY m.id DESC LIMIT 1').pluck().get('', 'NO', userType)
     let nextUserName = ''
     if (lastUserID==undefined) {//没有分配过任务
         nextUserName = db.prepare('SELECT name FROM `users` WHERE type = ? and status = ? ORDER BY id ASC LIMIT 1').pluck().get(userType, '启用')
@@ -273,7 +281,7 @@ function getNextUser(userType){
 }
 
 function getNextMission() {
-    let nextMission =  db.prepare('SELECT * FROM `missions` WHERE `assigned` = ? ORDER BY id ASC LIMIT 1').pluck().get('')
+    let nextMission =  db.prepare('SELECT * FROM `missions` WHERE `assigned` = ? ORDER BY id ASC LIMIT 1').get('')
     return nextMission
 }
 
@@ -316,3 +324,14 @@ ipcMain.on('saveTarget', (e, params) => {
     }
     e.returnValue = '成功'
 })
+
+function getSPUser(code) {    
+    let name  = db.prepare('SELECT `to` FROM `targets` WHERE code = ?').pluck().get(code)
+    return name
+}
+
+
+function getSameCode(excel_id, code) {
+    let name  = db.prepare('SELECT assigned FROM `missions` WHERE excel_id = ? AND code = ? AND assigned != ? ').pluck().get(excel_id, code, '')
+    return name
+}

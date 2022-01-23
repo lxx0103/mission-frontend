@@ -91,6 +91,7 @@
                             accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             label="请选择EXCEL文件(*.xlsx)"
                             truncate-length="20"
+                            :loading="uploadLoading"
                           ></v-file-input>
                         </v-col>
                     </v-row>
@@ -144,14 +145,11 @@
             </v-card-title>
             <v-card-text>
                 <v-container>
-                    <v-row>
-                      <v-btn
-                        class="ma-2"
-                        outlined
-                        :href="newExcel"
-                        download>
-                        下载文件
-                      </v-btn>
+                    <v-row>                      
+                      <v-alert type="success">
+                        分配结果已存到excels文件夹中:
+                        文件名为:{{newExcel}}
+                      </v-alert>
                     </v-row>
                 </v-container>
             </v-card-text>
@@ -218,6 +216,7 @@ import _ from 'lodash';
         errorMessages:'',
         newExcel: '',
         downloadDialog: false,
+        uploadLoading: false,
     }),
     created () {
         this.getMissions()
@@ -257,14 +256,17 @@ import _ from 'lodash';
           if (this.uploadFile == null) {
             return
           }
+          this.uploadLoading = true
           let params = {name: this.uploadFile.name, path: this.uploadFile.path}
           let res = window.ipcRenderer.sendSync('uploadExcel', params)
           if(res[0] == '成功'){
+            this.uploadLoading = false
             this.closeDialog() 
             this.getMissions()
             this.newExcel = res[1]
             this.downloadDialog = true
           }else{
+            this.uploadLoading = false
             this.errorMessages = res
             this.errorDialog = true
           }
