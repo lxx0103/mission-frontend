@@ -175,6 +175,7 @@ import _ from 'lodash';
         headers: [
             // { text: 'ID', value: 'id'},
             { text: 'EXCEL名称', value:'excel_name'},
+            { text: 'EXCEL SHEET', value:'real_sheet'},
             { text: 'EXCEL行号', value:'excel_row'},
             { text: '社会信用代码/纳税人识别号', value: 'code' },
             { text: '名称', value: 'name' },

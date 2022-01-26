@@ -36,6 +36,14 @@
           </v-icon>
           新增纳税人
         </v-btn>  
+        
+                <v-btn
+                  class="ml-3"
+                    @click="uploadExcel()"
+                >
+          <v-icon left>
+            mdi-plus
+          </v-icon>上传EXCEL</v-btn>
       </template>
       <template v-slot:item.action="{ item }">
         <v-btn
@@ -97,7 +105,39 @@
         </v-card>
         </v-dialog>
     </div>
+    <div class="text-center">
+        <v-dialog
+        v-model="dialogUpload"
+        width="500"
+        >
+        <v-card>
+            <v-card-title>
+                <span class="headline">{{dialogUploadName}}</span>
+            </v-card-title>
+            <v-card-text>
+                <v-container>
+                    <v-row>
+                        <v-col cols="12" sm="6" md="12">
+                          <v-file-input
+                            v-model="uploadFile"
+                            accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            label="请选择EXCEL文件(*.xlsx)"
+                            truncate-length="20"
+                            :loading="uploadLoading"
+                          ></v-file-input>
+                        </v-col>
+                    </v-row>
+                </v-container>
+            </v-card-text>
 
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" text @click="closeUploadDialog"> 取消 </v-btn>
+                <v-btn color="blue darken-1" text @click="doUpload"> 保存 </v-btn>
+            </v-card-actions>
+        </v-card>
+        </v-dialog>
+    </div>
     <div class="text-center">
         <v-dialog
         v-model="errorDialog"
@@ -140,6 +180,7 @@ import _ from 'lodash';
         headers: [
             { text: 'ID', value: 'id'},
             { text: '纳税人编号', value: 'code' },
+            { text: '纳税人名称', value: 'name' },
             { text: '管事人员', value: 'to'},
             { text: 'Action', value: 'action'}
         ],
@@ -152,7 +193,7 @@ import _ from 'lodash';
                 href: '/home',
             },
             {
-                text: '特殊纳税人管理',
+                text: '一般纳税人管理',
                 disabled: false,
                 href: ''
             }
@@ -169,6 +210,10 @@ import _ from 'lodash';
         userSearch: '',
         errorMessages:'',
         errorDialog: false,
+        dialogUpload: false,
+        dialogUploadName: '上传EXCEL',
+        uploadFile: null,
+        uploadLoading: false,
     }),
     created () {
         this.getTargets()
@@ -219,6 +264,30 @@ import _ from 'lodash';
             this.closeDialog()
             this.getTargets()
           }else{
+            this.errorMessages = res
+            this.errorDialog = true
+          }
+        },
+        uploadExcel() {
+          this.uploadFile = null
+          this.dialogUpload = true
+        },
+        closeUploadDialog () {
+            this.dialogUpload = false
+        },
+        doUpload () {
+          if (this.uploadFile == null) {
+            return
+          }
+          this.uploadLoading = true
+          let params = {name: this.uploadFile.name, path: this.uploadFile.path}
+          let res = window.ipcRenderer.sendSync('uploadSPExcel', params)
+          if(res[0] == '成功'){
+            this.uploadLoading = false
+            this.closeUploadDialog() 
+            this.getTargets()
+          }else{
+            this.uploadLoading = false
             this.errorMessages = res
             this.errorDialog = true
           }

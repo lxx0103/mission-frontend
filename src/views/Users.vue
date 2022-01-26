@@ -138,10 +138,10 @@ import _ from 'lodash';
         userID: 0,
         userName: '',
         userStatus: '启用',        
-        userType: '普通用户',
+        userType: '管事组人员',
         userError: '',
         statusOptions: ['启用', '禁用'],
-        typeOptions: ['管事组', '普通用户'],
+        typeOptions: ['网格化管理人员', '管事组人员'],
     }),
     created () {
         this.getUsers()
@@ -163,7 +163,7 @@ import _ from 'lodash';
             this.dialogName = '新增用户'
             this.userName = ''
             this.userStatus = '启用'
-            this.userType = '普通用户'
+            this.userType = '管事组人员'
             this.userID = 0
           } else {
             this.dialogName = '编辑用户'

@@ -127,7 +127,7 @@ ipcMain.on('saveUser', (e, params) => {
 
 
 ipcMain.on('getMissionsList', (e, filter) => {
-    let sql = 'SELECT m.* , e.name as excel_name  FROM `missions` m LEFT JOIN `excels` e ON m.excel_id = e.id WHERE 1=1 '
+    let sql = 'SELECT m.* , (m.excel_sheet+1) as real_sheet, e.name as excel_name  FROM `missions` m LEFT JOIN `excels` e ON m.excel_id = e.id WHERE 1=1 '
     if (filter.excel_id != 0 ) {
         sql += ' AND m.excel_id = @excel_id '
     }
@@ -157,46 +157,56 @@ ipcMain.on('uploadExcel', (e, params) => {
     fs.copyFileSync(params.path, './excels/'+params.name)
     let workbook = XLSX.readFile('./excels/'+params.name)
     let sheetNames = workbook.SheetNames;
-    let worksheet = workbook.Sheets[sheetNames[0]]
-    let codeCell = getCodeCell(worksheet)
-    let nameCell = getNameCell(worksheet)
-    if (codeCell == 0) {
-        e.returnValue = '没有找到“纳税人识别号/社会信用代码”'
-        return
-    }
-    if (nameCell == 0) {
-        e.returnValue = '没有找到“纳税人名称”'
-        return
-    }
-    if (nameCell.r != codeCell.r) {
-        e.returnValue = '表头错误'
-        return
+    let rows = []
+    for (var a = 0; a < sheetNames.length; a++){
+        let worksheet = workbook.Sheets[sheetNames[a]]
+        let codeCell = getCodeCell(worksheet)
+        let nameCell = getNameCell(worksheet)
+        if (codeCell == 0) {
+            e.returnValue = '第' + a + '个SHEET没有找到“纳税人识别号/社会信用代码”'
+            return
+        }
+        if (nameCell == 0) {
+            e.returnValue = '第' + a + '个SHEET没有找到“纳税人名称”'
+            return
+        }
+        if (nameCell.r != codeCell.r) {
+            e.returnValue = '第' + a + '个SHEET表头错误'
+            return
+        }        
+        let range = XLSX.utils.decode_range(worksheet['!ref']);
+        for (var currentRow = nameCell.r + 1 ; currentRow <= range.e.r; currentRow ++ ) {
+            let currentCodeCell = worksheet[
+                XLSX.utils.encode_cell({r: currentRow, c: codeCell.c})
+            ]
+            let currentNameCell = worksheet[
+                XLSX.utils.encode_cell({r: currentRow, c: nameCell.c})
+            ]
+            rows.push({excel_sheet: a, excel_row: currentRow+1, code: currentCodeCell.w, name: currentNameCell.w })
+        }
     }
     let today = (new Date()).toISOString().split('T')[0];
     let excel_id = db.prepare("INSERT INTO excels (name , date , path) values (?, ?, ?)").run(params.name, today, './excels/'+params.name)
-    const insertMission = db.prepare("INSERT INTO missions (excel_id, excel_row, code, name) values (?, ?, ?, ?)");
-    let range = XLSX.utils.decode_range(worksheet['!ref']);
-    for (var currentRow = nameCell.r + 1 ; currentRow <= range.e.r; currentRow ++ ) {
-        let currentCodeCell = worksheet[
-            XLSX.utils.encode_cell({r: currentRow, c: codeCell.c})
-        ]
-        let currentNameCell = worksheet[
-            XLSX.utils.encode_cell({r: currentRow, c: nameCell.c})
-        ]
-        insertMission.run(excel_id.lastInsertRowid, currentRow+1, currentCodeCell.w, currentNameCell.v)
-    }
+    const insertMission = db.prepare("INSERT INTO missions (excel_id, excel_sheet, excel_row, code, name) values ("+excel_id.lastInsertRowid+", @excel_sheet, @excel_row, @code, @name)");
+    const insertMany = db.transaction((cats) => {
+        for (const cat of cats) insertMission.run(cat);
+    });
+    insertMany(rows);
     assignMission()
     let newPath = './excels/已分配-' + params.name
     const stmt = db.prepare('SELECT * FROM `missions` WHERE excel_id = ?');
-    const rows = stmt.all(excel_id.lastInsertRowid);
-    XLSX.utils.sheet_add_aoa(worksheet, [['负责人']], {origin:XLSX.utils.encode_cell({r: codeCell.r, c: range.e.c + 1})})
-    for (var i = 0; i < rows.length; i++){
-        console.log(rows[i])
-        XLSX.utils.sheet_add_aoa(worksheet, [[rows[i].assigned]], {origin:XLSX.utils.encode_cell({r: rows[i].excel_row-1, c: range.e.c + 1})})
+    const newRows = stmt.all(excel_id.lastInsertRowid);
+    
+    // XLSX.utils.sheet_add_aoa(worksheet, [['负责人']], {origin:XLSX.utils.encode_cell({r: codeCell.r, c: range.e.c + 1})})
+    for (var i = 0; i < newRows.length; i++){
+        let worksheet = workbook.Sheets[sheetNames[newRows[i].excel_sheet]]
+        let range = XLSX.utils.decode_range(worksheet['!ref']);
+        XLSX.utils.sheet_add_aoa(worksheet, [[newRows[i].assigned]], {origin:XLSX.utils.encode_cell({r: newRows[i].excel_row-1, c: range.e.c + 1})})
     }
     XLSX.writeFile(workbook, newPath)
     e.returnValue = ['成功', '已分配-'+params.name]
 })
+
 
 function getCodeCell(sheet) {
     let range = XLSX.utils.decode_range(sheet['!ref']);
@@ -253,7 +263,7 @@ function assignMission() {
         } else {
             let nextUser = getSPUser(nextMission.code)
             if (nextUser == undefined){
-                nextUser = getNextUser('普通用户')
+                nextUser = getNextUser('管事组人员')
             }
             let sameCode = getSameCode(nextMission.excel_id, nextMission.code)
             if (sameCode == undefined){
@@ -292,7 +302,7 @@ ipcMain.on('getTargetList', (e, filter) => {
 })
 ipcMain.on('getSPUsers', (e, filter) => {
     const stmt = db.prepare('SELECT * FROM `users` WHERE type = ? AND name like ?');
-    const rows = stmt.all('管事组', '%' + filter + '%');
+    const rows = stmt.all('网格化管理人员', '%' + filter + '%');
     e.returnValue = rows
 })
 
@@ -335,3 +345,59 @@ function getSameCode(excel_id, code) {
     let name  = db.prepare('SELECT assigned FROM `missions` WHERE excel_id = ? AND code = ? AND assigned != ? ').pluck().get(excel_id, code, '')
     return name
 }
+
+
+ipcMain.on('uploadSPExcel', (e, params) => {
+    let workbook = XLSX.readFile(params.path)
+    let sheetNames = workbook.SheetNames;
+    let worksheet = workbook.Sheets[sheetNames[0]]
+    var codeCell = worksheet[
+        XLSX.utils.encode_cell({r: 0, c: 0})
+    ];
+    if (!(codeCell.w).includes('社会信用代码') && !(codeCell.w).includes('纳税人识别号')){        
+        e.returnValue ='表头错误,第一行第一列应为社会信用代码/纳税人识别号'
+        return
+    }
+    var nameCell = worksheet[
+        XLSX.utils.encode_cell({r: 0, c: 1})
+    ];
+    if (!(nameCell.w).includes('纳税人名称')){        
+        e.returnValue ='表头错误,第一行第二列应为纳税人名称'
+        return
+    }
+    // let today = (new Date()).toISOString().split('T')[0];
+    // let excel_id = db.prepare("INSERT INTO excels (name , date , path) values (?, ?, ?)").run(params.name, today, './excels/'+params.name)
+    let rows = []
+    let range = XLSX.utils.decode_range(worksheet['!ref']);
+    for (var currentRow = 1 ; currentRow <= range.e.r; currentRow ++ ) {
+        let currentCodeCell = worksheet[
+            XLSX.utils.encode_cell({r: currentRow, c: 0})
+        ]
+        let currentNameCell = worksheet[
+            XLSX.utils.encode_cell({r: currentRow, c: 1})
+        ]
+        let currentToCell = worksheet[
+            XLSX.utils.encode_cell({r: currentRow, c: 2})
+        ]
+        
+        let userExist = 0
+        userExist = db.prepare('SELECT count(1) FROM `users` WHERE name = ? AND type = ?').pluck().get(currentToCell.w, '网格化管理人员')
+        if (userExist == 0 ){
+            e.returnValue = '第'+(currentRow+1)+'行的管事人员不存在,请先添加'
+            return
+        }
+        let codeExist = 0
+        codeExist = db.prepare('SELECT count(1) FROM `targets` WHERE code = ? ').pluck().get(currentCodeCell.w)
+        if (codeExist != 0 ){
+            e.returnValue = '第'+(currentRow+1)+'行的纳税人识别号已经存在,请勿重复添加'
+            return
+        }
+        rows.push({code:currentCodeCell.w, name:currentNameCell.w, to:currentToCell.w})
+    }
+    const insert = db.prepare('INSERT INTO targets (name , code , `to`) VALUES (@name, @code, @to)');
+    const insertMany = db.transaction((cats) => {
+        for (const cat of cats) insert.run(cat);
+    });
+    insertMany(rows);
+    e.returnValue = ['成功', '已分配-'+params.name]
+})

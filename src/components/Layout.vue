@@ -50,7 +50,7 @@ export default {
                 },
                 {
                     icon: 'mdi-flag-variant-outline',
-                    title: '特殊纳税人管理',
+                    title: '一般纳税人管理',
                     to: '/targets'
                 },
             ],
