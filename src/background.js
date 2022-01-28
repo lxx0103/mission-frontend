@@ -163,15 +163,15 @@ ipcMain.on('uploadExcel', (e, params) => {
         let codeCell = getCodeCell(worksheet)
         let nameCell = getNameCell(worksheet)
         if (codeCell == 0) {
-            e.returnValue = '第' + a + '个SHEET没有找到“纳税人识别号/社会信用代码”'
+            e.returnValue = '第' + (a+1) + '个SHEET没有找到“纳税人识别号/社会信用代码”'
             return
         }
         if (nameCell == 0) {
-            e.returnValue = '第' + a + '个SHEET没有找到“纳税人名称”'
+            e.returnValue = '第' + (a+1) + '个SHEET没有找到“纳税人名称”'
             return
         }
         if (nameCell.r != codeCell.r) {
-            e.returnValue = '第' + a + '个SHEET表头错误'
+            e.returnValue = '第' + (a+1) + '个SHEET表头错误'
             return
         }        
         let range = XLSX.utils.decode_range(worksheet['!ref']);
@@ -182,6 +182,9 @@ ipcMain.on('uploadExcel', (e, params) => {
             let currentNameCell = worksheet[
                 XLSX.utils.encode_cell({r: currentRow, c: nameCell.c})
             ]
+            if(currentNameCell == undefined || currentCodeCell == undefined){
+                continue
+            }
             rows.push({excel_sheet: a, excel_row: currentRow+1, code: currentCodeCell.w, name: currentNameCell.w })
         }
     }
@@ -194,14 +197,19 @@ ipcMain.on('uploadExcel', (e, params) => {
     insertMany(rows);
     assignMission()
     let newPath = './excels/已分配-' + params.name
-    const stmt = db.prepare('SELECT * FROM `missions` WHERE excel_id = ?');
-    const newRows = stmt.all(excel_id.lastInsertRowid);
     
-    // XLSX.utils.sheet_add_aoa(worksheet, [['负责人']], {origin:XLSX.utils.encode_cell({r: codeCell.r, c: range.e.c + 1})})
-    for (var i = 0; i < newRows.length; i++){
-        let worksheet = workbook.Sheets[sheetNames[newRows[i].excel_sheet]]
+    for (var b = 0; b < sheetNames.length; b++){
+        let worksheet = workbook.Sheets[sheetNames[b]]
+        let codeCell = getCodeCell(worksheet)
         let range = XLSX.utils.decode_range(worksheet['!ref']);
-        XLSX.utils.sheet_add_aoa(worksheet, [[newRows[i].assigned]], {origin:XLSX.utils.encode_cell({r: newRows[i].excel_row-1, c: range.e.c + 1})})
+        
+        const stmt = db.prepare('SELECT * FROM `missions` WHERE excel_id = ? AND excel_sheet = ?');
+        const newRows = stmt.all(excel_id.lastInsertRowid, b);
+        console.log(newRows)
+        XLSX.utils.sheet_add_aoa(worksheet, [['负责人']], {origin:XLSX.utils.encode_cell({r: codeCell.r, c: range.e.c + 1})})
+        for (var i = 0; i < newRows.length; i++){
+            XLSX.utils.sheet_add_aoa(worksheet, [[newRows[i].assigned]], {origin:XLSX.utils.encode_cell({r: newRows[i].excel_row-1, c: range.e.c + 1})})
+        }    
     }
     XLSX.writeFile(workbook, newPath)
     e.returnValue = ['成功', '已分配-'+params.name]
@@ -217,8 +225,9 @@ function getCodeCell(sheet) {
             var nextCell = sheet[
                 XLSX.utils.encode_cell({r: rowNum, c: colNum})
             ];
+            console.log(nextCell)
             if( typeof nextCell === 'undefined' ){
-                break
+                continue
             } else {
                 if ((nextCell.w).includes('社会信用代码') || (nextCell.w).includes('纳税人识别号')){
                     codeColumn = colNum
