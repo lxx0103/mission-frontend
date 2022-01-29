@@ -79,6 +79,14 @@
                     </v-row>
                     <v-row>
                         <v-col cols="12" sm="6" md="12">
+                            <v-text-field
+                            v-model="name"
+                            label="纳税人名称"
+                            ></v-text-field>
+                        </v-col>
+                    </v-row>
+                    <v-row>
+                        <v-col cols="12" sm="6" md="12">
                             <v-autocomplete
                                 v-model="userSelected"
                                 :items="userItems"
@@ -181,7 +189,7 @@ import _ from 'lodash';
             { text: 'ID', value: 'id'},
             { text: '纳税人编号', value: 'code' },
             { text: '纳税人名称', value: 'name' },
-            { text: '管事人员', value: 'to'},
+            { text: '网格员', value: 'to'},
             { text: 'Action', value: 'action'}
         ],
         targetdata: [],
@@ -203,6 +211,7 @@ import _ from 'lodash';
         dialogName: '新增纳税人',
         targetID: 0,
         code: '',
+        name: '',
         to: '',
         userSelected: 0,
         userItems: [],
@@ -242,11 +251,13 @@ import _ from 'lodash';
           if(currentTarget == ''){
             this.dialogName = '新增纳税人'
             this.code = ''
+            this.name = ''
             this.userSelected = 0
             this.targetID = 0
           } else {
             this.dialogName = '编辑纳税人'
             this.code = currentTarget.code
+            this.name = currentTarget.name
             this.targetID = currentTarget.id
           }
           this.dialogTarget = true
@@ -258,7 +269,7 @@ import _ from 'lodash';
             this.errorDialog = false
         },
         saveTarget () {
-          let params = {targetID: this.targetID, code: this.code, to: this.userSelected.name}
+          let params = {targetID: this.targetID, code: this.code, name: this.name, to: this.userSelected.name}
           let res = window.ipcRenderer.sendSync('saveTarget', params)
           if(res == '成功'){
             this.closeDialog()

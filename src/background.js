@@ -325,6 +325,10 @@ ipcMain.on('saveTarget', (e, params) => {
         e.returnValue = '纳税人编号不能为空'
         return
     }
+    if ( params.name == '') {
+        e.returnValue = '纳税人名称不能为空'
+        return
+    }
     let exist = 0
 
     if (params.targetID !=0 ) {
@@ -337,9 +341,9 @@ ipcMain.on('saveTarget', (e, params) => {
         return
     }
     if (params.targetID != 0) {
-        db.prepare('UPDATE `targets` set code = ?, `to` = ? WHERE id = ?').run(params.code, params.to, params.targetID)
+        db.prepare('UPDATE `targets` set code = ?, name = ?, `to` = ? WHERE id = ?').run(params.code, params.name, params.to, params.targetID)
     } else {
-        db.prepare('INSERT INTO `targets` (code, `to`) values (?, ?)').run(params.code, params.to)
+        db.prepare('INSERT INTO `targets` (code, name, `to`) values (?, ?, ?)').run(params.code, params.name, params.to)
     }
     e.returnValue = '成功'
 })
