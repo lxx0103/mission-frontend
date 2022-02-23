@@ -5,7 +5,7 @@
             <v-col
               class="d-flex align-bottom pt-3 pl-5 pr-5"
               cols="12"
-              sm="3"
+              sm="2"
             >                    
               <v-autocomplete
                 v-model="excelSelected"
@@ -24,7 +24,7 @@
             <v-col
               class="d-flex align-bottom pt-3"
               cols="12"
-              sm="3"
+              sm="1"
             >                
               <v-text-field 
                 placeholder="搜索目标" 
@@ -35,13 +35,64 @@
             <v-col
               class="d-flex align-bottom pt-3"
               cols="12"
-              sm="3"
+              sm="1"
             >                
               <v-text-field 
                 placeholder="搜索负责人" 
                 v-model="filter.assigned"
                 >
               ></v-text-field>
+            </v-col>
+            <v-col
+              class="d-flex align-bottom pt-3"
+              cols="12"
+              sm="2"
+            >        
+              <v-menu ref="menu1" v-model="menu1" :close-on-content-click="true" transition="scale-transition" offset-y min-width="auto">
+                <template v-slot:activator="{ on, attrs }">
+                  <v-text-field
+                    v-model="filter.from"
+                    label="从"
+                    prepend-icon="mdi-calendar"
+                    append-icon="mdi-close"
+                    @click:append="filter.from = ''"
+                    readonly
+                    v-bind="attrs"
+                    v-on="on"
+                  ></v-text-field>
+                </template>
+                <v-date-picker
+                  v-model="filter.from"
+                  no-title
+                  scrollable
+                >
+                </v-date-picker>
+              </v-menu>
+            </v-col>
+            <v-col
+              class="d-flex align-bottom pt-3"
+              cols="12"
+              sm="2"
+            >                
+              <v-menu ref="menu2" v-model="menu2" :close-on-content-click="true" transition="scale-transition" offset-y min-width="auto">
+                <template v-slot:activator="{ on, attrs }">
+                  <v-text-field
+                    v-model="filter.to"
+                    label="到"
+                    prepend-icon="mdi-calendar"
+                    append-icon="mdi-close"
+                    @click:append="filter.to = ''"
+                    readonly
+                    v-bind="attrs"
+                    v-on="on"
+                  ></v-text-field>
+                </template>
+                <v-date-picker
+                  v-model="filter.to"
+                  no-title
+                  scrollable>
+                </v-date-picker>
+              </v-menu>
             </v-col>
             <v-col
                 class="d-flex align-bottom pt-3"
@@ -55,6 +106,13 @@
                     large
                     @click="getMissions()"
                 >搜索</v-btn>
+                <v-btn
+                    class="mr-3"
+                    color="secondary"
+                    elevation="2"
+                    large
+                    @click="exportExcel()"
+                >导出</v-btn>
                 <v-btn
                     ml-3
                     color="warning"
@@ -161,6 +219,33 @@
         </v-card>
         </v-dialog>
     </div>
+    <div class="text-center">
+        <v-dialog
+        v-model="expDialog"
+        width="500"
+        >
+        <v-card>
+            <v-card-title>
+                <span class="headline">下载分配历史</span>
+            </v-card-title>
+            <v-card-text>
+                <v-container>
+                    <v-row>                      
+                      <v-alert type="success">
+                        分配历史已存到excels文件夹中:
+                        文件名为:{{expHistory}}
+                      </v-alert>
+                    </v-row>
+                </v-container>
+            </v-card-text>
+
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" text @click="closeExpDialog"> 确定 </v-btn>
+            </v-card-actions>
+        </v-card>
+        </v-dialog>
+    </div>
   </div>
 </template>
 <style lang="scss">
@@ -185,6 +270,8 @@ import _ from 'lodash';
           excel_id : 0,
           name : '',
           assigned: '',
+          from: '',
+          to: '',
         },
         userdata: [],
         loading: true,
@@ -218,6 +305,10 @@ import _ from 'lodash';
         newExcel: '',
         downloadDialog: false,
         uploadLoading: false,
+        menu1: false,
+        menu2: false,
+        expDialog: false,
+        expHistory: '',
     }),
     created () {
         this.getMissions()
@@ -239,6 +330,14 @@ import _ from 'lodash';
             this.userdata  = window.ipcRenderer.sendSync('getMissionsList', this.filter)
             this.loading = false
         }, 500),
+        exportExcel: _.debounce(function() {
+            this.filter.excel_id = this.excelSelected == null ? 0 : ( typeof this.excelSelected.id == 'undefined' ? 0 : this.excelSelected.id )
+            this.loading = true
+            var res  = window.ipcRenderer.sendSync('expMissionsList', this.filter)
+            this.expHistory = res
+            this.expDialog = true
+            this.loading = false
+        }, 1000),
         uploadExcel() {
           this.uploadFile = null
           this.dialogUpload = true
@@ -252,6 +351,9 @@ import _ from 'lodash';
         },
         closeDownloadDialog () {
             this.downloadDialog = false
+        },
+        closeExpDialog () {
+            this.expDialog = false
         },
         doUpload () {
           if (this.uploadFile == null) {

@@ -137,8 +137,14 @@ ipcMain.on('getMissionsList', (e, filter) => {
     if (filter.assigned != '') {
         sql += ' AND m.assigned like @assigned '
     }
+    if (filter.from != '') {
+        sql += ' AND e.date >= @from '
+    }
+    if (filter.to != '') {
+        sql += ' AND e.date <= @to '
+    }
     const stmt = db.prepare(sql);
-    let where = {excel_id: filter.excel_id, name: '%'+filter.name+'%', code: '%'+filter.name+'%', assigned: '%'+filter.assigned+'%'}
+    let where = {excel_id: filter.excel_id, name: '%'+filter.name+'%', code: '%'+filter.name+'%', assigned: '%'+filter.assigned+'%', from: filter.from, to: filter.to}
     const rows = stmt.all(where);
     e.returnValue = rows
 })
@@ -413,4 +419,41 @@ ipcMain.on('uploadSPExcel', (e, params) => {
     });
     insertMany(rows);
     e.returnValue = ['成功', '已分配-'+params.name]
+})
+
+
+ipcMain.on('expMissionsList', (e, filter) => {
+    let sql = 'SELECT e.date as 导入日期, e.name as Excel名称, (m.excel_sheet+1) as Sheet编号, m.code as 纳税人识别号, m.name as 纳税人名称, m.assigned as 负责人  FROM `missions` m LEFT JOIN `excels` e ON m.excel_id = e.id WHERE 1=1 '
+    if (filter.excel_id != 0 ) {
+        sql += ' AND m.excel_id = @excel_id '
+    }
+    if (filter.name != '') {
+        sql += ' AND ( m.name like @name OR m.code like @code )'
+    }
+    if (filter.assigned != '') {
+        sql += ' AND m.assigned like @assigned '
+    }
+    if (filter.from != '') {
+        sql += ' AND e.date >= @from '
+    }
+    if (filter.to != '') {
+        sql += ' AND e.date <= @to '
+    }
+    const stmt = db.prepare(sql);
+    let where = {excel_id: filter.excel_id, name: '%'+filter.name+'%', code: '%'+filter.name+'%', assigned: '%'+filter.assigned+'%', from: filter.from, to: filter.to}
+    const rows = stmt.all(where);
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '分配历史')
+    var currentdate = new Date(); 
+    var datetime = currentdate.getFullYear() + "-"
+                + (currentdate.getMonth()+1)  + "-" 
+                + currentdate.getDate()
+                + currentdate.getHours()
+                + currentdate.getMinutes() 
+                + currentdate.getSeconds();
+    var path = 'excels/分配历史导出-'+datetime+'.xlsx'
+    XLSX.writeFile(wb, path)
+    e.returnValue = path
+    return
 })
