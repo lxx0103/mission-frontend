@@ -50,7 +50,7 @@ export default {
                 },
                 {
                     icon: 'mdi-flag-variant-outline',
-                    title: '一般纳税人管理',
+                    title: '重点税源、特殊税源管理',
                     to: '/targets'
                 },
             ],

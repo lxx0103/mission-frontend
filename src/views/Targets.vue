@@ -201,7 +201,7 @@ import _ from 'lodash';
                 href: '/home',
             },
             {
-                text: '一般纳税人管理',
+                text: '重点税源、特殊税源管理',
                 disabled: false,
                 href: ''
             }
