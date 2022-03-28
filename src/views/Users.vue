@@ -138,10 +138,10 @@ import _ from 'lodash';
         userID: 0,
         userName: '',
         userStatus: '启用',        
-        userType: '管事组人员',
+        userType: '一般税源管事组',
         userError: '',
         statusOptions: ['启用', '禁用'],
-        typeOptions: ['网格化管理人员', '管事组人员'],
+        typeOptions: ['重点税源、特殊税源管事组', '一般税源管事组'],
     }),
     created () {
         this.getUsers()
@@ -163,7 +163,7 @@ import _ from 'lodash';
             this.dialogName = '新增用户'
             this.userName = ''
             this.userStatus = '启用'
-            this.userType = '管事组人员'
+            this.userType = '一般税源管事组'
             this.userID = 0
           } else {
             this.dialogName = '编辑用户'

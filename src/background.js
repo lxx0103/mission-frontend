@@ -276,9 +276,11 @@ function assignMission() {
         if (nextMission == undefined ){
             hasMore = false
         } else {
-            let nextUser = getSPUser(nextMission.code)
+            let nextUser = checkSP(nextMission.code)
             if (nextUser == undefined){
-                nextUser = getNextUser('管事组人员')
+                nextUser = getNextUser('一般税源管事组')
+            } else {
+                nextUser = getNextUser('重点税源、特殊税源管事组')
             }
             let sameCode = getSameCode(nextMission.excel_id, nextMission.code)
             if (sameCode == undefined){
@@ -317,7 +319,7 @@ ipcMain.on('getTargetList', (e, filter) => {
 })
 ipcMain.on('getSPUsers', (e, filter) => {
     const stmt = db.prepare('SELECT * FROM `users` WHERE type = ? AND name like ?');
-    const rows = stmt.all('网格化管理人员', '%' + filter + '%');
+    const rows = stmt.all('重点税源、特殊税源管事组', '%' + filter + '%');
     e.returnValue = rows
 })
 
@@ -347,15 +349,15 @@ ipcMain.on('saveTarget', (e, params) => {
         return
     }
     if (params.targetID != 0) {
-        db.prepare('UPDATE `targets` set code = ?, name = ?, `to` = ? WHERE id = ?').run(params.code, params.name, params.to, params.targetID)
+        db.prepare('UPDATE `targets` set code = ?, name = ? WHERE id = ?').run(params.code, params.name, params.targetID)
     } else {
-        db.prepare('INSERT INTO `targets` (code, name, `to`) values (?, ?, ?)').run(params.code, params.name, params.to)
+        db.prepare('INSERT INTO `targets` (code, name) values (?, ?)').run(params.code, params.name)
     }
     e.returnValue = '成功'
 })
 
-function getSPUser(code) {    
-    let name  = db.prepare('SELECT `to` FROM `targets` WHERE code = ?').pluck().get(code)
+function checkSP(code) {    
+    let name  = db.prepare('SELECT `id` FROM `targets` WHERE code = ?').pluck().get(code)
     return name
 }
 
@@ -395,25 +397,15 @@ ipcMain.on('uploadSPExcel', (e, params) => {
         let currentNameCell = worksheet[
             XLSX.utils.encode_cell({r: currentRow, c: 1})
         ]
-        let currentToCell = worksheet[
-            XLSX.utils.encode_cell({r: currentRow, c: 2})
-        ]
-        
-        let userExist = 0
-        userExist = db.prepare('SELECT count(1) FROM `users` WHERE name = ? AND type = ?').pluck().get(currentToCell.w, '网格化管理人员')
-        if (userExist == 0 ){
-            e.returnValue = '第'+(currentRow+1)+'行的管事人员不存在,请先添加'
-            return
-        }
         let codeExist = 0
         codeExist = db.prepare('SELECT count(1) FROM `targets` WHERE code = ? ').pluck().get(currentCodeCell.w)
         if (codeExist != 0 ){
             e.returnValue = '第'+(currentRow+1)+'行的纳税人识别号已经存在,请勿重复添加'
             return
         }
-        rows.push({code:currentCodeCell.w, name:currentNameCell.w, to:currentToCell.w})
+        rows.push({code:currentCodeCell.w, name:currentNameCell.w})
     }
-    const insert = db.prepare('INSERT INTO targets (name , code , `to`) VALUES (@name, @code, @to)');
+    const insert = db.prepare('INSERT INTO targets (name , code ) VALUES (@name, @code)');
     const insertMany = db.transaction((cats) => {
         for (const cat of cats) insert.run(cat);
     });
