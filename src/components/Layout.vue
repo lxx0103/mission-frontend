@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar app dark clipped-left>
-        <v-toolbar-title>任务分配系统</v-toolbar-title> <v-spacer></v-spacer>
+        <v-toolbar-title>“随机配”小程序</v-toolbar-title> <v-spacer></v-spacer>
     </v-app-bar>
     <v-navigation-drawer  v-model="drawer"  clipped app style="text-align: left;">
         <v-list>
