@@ -201,7 +201,7 @@ ipcMain.on('uploadExcel', (e, params) => {
         for (const cat of cats) insertMission.run(cat);
     });
     insertMany(rows);
-    assignMission()
+    assignMission(params.type)
     let newPath = './excels/已分配-' + params.name
     
     for (var b = 0; b < sheetNames.length; b++){
@@ -269,19 +269,14 @@ function getNameCell(sheet) {
     return 0
 }
 
-function assignMission() {
+function assignMission(type) {
     let hasMore = true
     while (hasMore) {
         let nextMission = getNextMission()
         if (nextMission == undefined ){
             hasMore = false
         } else {
-            let nextUser = checkSP(nextMission.code)
-            if (nextUser == undefined){
-                nextUser = getNextUser('一般税源管事组')
-            } else {
-                nextUser = getNextUser('重点税源、特殊税源管事组')
-            }
+            let nextUser = getNextUser(type)
             let sameCode = getSameCode(nextMission.excel_id, nextMission.code)
             if (sameCode == undefined){
                 db.prepare('UPDATE missions SET assigned = ? WHERE id = ?').run(nextUser, nextMission.id)

@@ -75,7 +75,7 @@
                           <v-select
                             v-model="userType"
                             :items="typeOptions"
-                            label="用户类型"
+                            label="所属组别"
                           ></v-select>
                         </v-col>
                     </v-row>
@@ -114,7 +114,7 @@ import _ from 'lodash';
         headers: [
             { text: 'ID', value: 'id'},
             { text: '姓名', value: 'name' },
-            { text: '用户类型', value: 'type'},
+            { text: '所属组别', value: 'type'},
             { text: '状态', value: 'status' },
             { text: 'Action', value: 'action'}
         ],
@@ -138,10 +138,10 @@ import _ from 'lodash';
         userID: 0,
         userName: '',
         userStatus: '启用',        
-        userType: '一般税源管事组',
+        userType: '基础管理一组',
         userError: '',
         statusOptions: ['启用', '禁用'],
-        typeOptions: ['重点税源、特殊税源管事组', '一般税源管事组'],
+        typeOptions: ['基础管理一组', '基础管理二组', '税收监管组'],
     }),
     created () {
         this.getUsers()
@@ -163,7 +163,7 @@ import _ from 'lodash';
             this.dialogName = '新增用户'
             this.userName = ''
             this.userStatus = '启用'
-            this.userType = '一般税源管事组'
+            this.userType = '基础管理一组'
             this.userID = 0
           } else {
             this.dialogName = '编辑用户'

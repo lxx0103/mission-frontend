@@ -153,6 +153,16 @@
                           ></v-file-input>
                         </v-col>
                     </v-row>
+                    <v-row>
+                        <v-col cols="12" sm="6" md="12">
+                          
+                          <v-select
+                            v-model="userType"
+                            :items="typeOptions"
+                            label="所属组别"
+                          ></v-select>
+                        </v-col>
+                    </v-row>
                 </v-container>
             </v-card-text>
 
@@ -309,6 +319,8 @@ import _ from 'lodash';
         menu2: false,
         expDialog: false,
         expHistory: '',
+        userType: '基础管理一组',
+        typeOptions: ['基础管理一组', '基础管理二组', '税收监管组'],
     }),
     created () {
         this.getMissions()
@@ -360,7 +372,7 @@ import _ from 'lodash';
             return
           }
           this.uploadLoading = true
-          let params = {name: this.uploadFile.name, path: this.uploadFile.path}
+          let params = {name: this.uploadFile.name, path: this.uploadFile.path, type: this.userType}
           let res = window.ipcRenderer.sendSync('uploadExcel', params)
           if(res[0] == '成功'){
             this.uploadLoading = false

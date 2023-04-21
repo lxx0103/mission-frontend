@@ -48,11 +48,11 @@ export default {
                     title: '任务列表',
                     to: '/missions'
                 },
-                {
-                    icon: 'mdi-flag-variant-outline',
-                    title: '重点税源、特殊税源管理',
-                    to: '/targets'
-                },
+                // {
+                //     icon: 'mdi-flag-variant-outline',
+                //     title: '重点税源、特殊税源管理',
+                //     to: '/targets'
+                // },
             ],
         };
     },
